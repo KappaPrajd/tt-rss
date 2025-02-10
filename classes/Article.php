@@ -7,6 +7,12 @@ class Article extends Handler_Protected {
 	const CATCHUP_MODE_MARK_AS_READ = 0;
 	const CATCHUP_MODE_MARK_AS_UNREAD = 1;
 	const CATCHUP_MODE_TOGGLE = 2;
+	/**
+	 * List of websites for which article links will be modified to bypass paywalls.
+	 */
+	const PAYWALLED_WEBSITES = [
+		'economist.com'
+	];
 
 	function redirect(): void {
 		$article = ORM::for_table('ttrss_entries')
@@ -16,7 +22,7 @@ class Article extends Handler_Protected {
 				->find_one((int)$_REQUEST['id']);
 
 		if ($article) {
-			$article_url = UrlHelper::validate($article->link);
+			$article_url = $this->_get_article_url($article->link);
 
 			if ($article_url) {
 				header("Location: $article_url");
@@ -704,5 +710,17 @@ class Article extends Handler_Protected {
 		}
 
 		return array_unique($rv);
+	}
+
+	function _get_article_url(string $link): string {
+		$isPaywalled = array_filter(self::PAYWALLED_WEBSITES, function ($domain) use ($link) {
+			return strpos($link, $domain) !== false;
+		});
+
+		if ($isPaywalled) {
+			return 'https://www.removepaywall.com/search?url=' . $link;
+		}
+
+		return UrlHelper::validate($link);
 	}
 }
