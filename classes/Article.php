@@ -7,11 +7,16 @@ class Article extends Handler_Protected {
 	const CATCHUP_MODE_MARK_AS_READ = 0;
 	const CATCHUP_MODE_MARK_AS_UNREAD = 1;
 	const CATCHUP_MODE_TOGGLE = 2;
+	const PAYWALL_REMOVERS = [
+		'RemovePaywall' => 'https://www.removepaywall.com/search?url=',
+		'12ft' => 'https://12ft.io/'
+	];
 	/**
-	 * List of websites for which article links will be modified to bypass paywalls.
+	 * List of paywalled websites and their respective bypass methods.
 	 */
 	const PAYWALLED_WEBSITES = [
-		'economist.com'
+		'economist.com' => self::PAYWALL_REMOVERS['RemovePaywall'],
+		'rp.pl' => self::PAYWALL_REMOVERS['12ft'],
 	];
 
 	function redirect(): void {
@@ -713,14 +718,12 @@ class Article extends Handler_Protected {
 	}
 
 	function _get_article_url(string $link): string {
-		$isPaywalled = array_filter(self::PAYWALLED_WEBSITES, function ($domain) use ($link) {
-			return strpos($link, $domain) !== false;
-		});
-
-		if ($isPaywalled) {
-			return 'https://www.removepaywall.com/search?url=' . $link;
+		foreach (self::PAYWALLED_WEBSITES as $domain => $removerUrl) {
+			if (strpos($link, $domain) !== false) {
+				return $removerUrl . $link;
+			}
 		}
-
+	
 		return UrlHelper::validate($link);
 	}
 }
