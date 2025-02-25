@@ -67,6 +67,10 @@ services:
     depends_on:
       - app
 
+  rss-bridge:
+    image: rssbridge/rss-bridge
+    restart: always
+
 volumes:
   db:
   app:
