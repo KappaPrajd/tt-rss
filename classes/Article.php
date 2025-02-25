@@ -17,6 +17,7 @@ class Article extends Handler_Protected {
 	const PAYWALLED_WEBSITES = [
 		'economist.com' => self::PAYWALL_REMOVERS['RemovePaywall'],
 		'rp.pl' => self::PAYWALL_REMOVERS['12ft'],
+		'foreignaffairs.com' => self::PAYWALL_REMOVERS['RemovePaywall'],
 	];
 
 	function redirect(): void {
