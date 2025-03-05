@@ -13,6 +13,8 @@ services:
       - POSTGRES_USER=${TTRSS_DB_USER}
       - POSTGRES_PASSWORD=${TTRSS_DB_PASS}
       - POSTGRES_DB=${TTRSS_DB_NAME}
+    networks:
+      - rss_shared_network
     volumes:
       - db:/var/lib/postgresql/data
 
@@ -24,6 +26,8 @@ services:
     restart: unless-stopped
     env_file:
       - .env
+    networks:
+      - rss_shared_network
     volumes:
       - app:/var/www/html
       - ./config.d:/opt/tt-rss/config.d:ro
@@ -48,6 +52,8 @@ services:
     restart: unless-stopped
     env_file:
       - .env
+    networks:
+      - rss_shared_network
     volumes:
       - app:/var/www/html
       - ./config.d:/opt/tt-rss/config.d:ro
@@ -62,17 +68,16 @@ services:
       - .env
     ports:
       - ${HTTP_PORT}:80
+    networks:
+      - rss_shared_network
     volumes:
       - app:/var/www/html:ro
     depends_on:
       - app
 
-  rss-bridge:
-    image: rssbridge/rss-bridge
-    build:
-      dockerfile: ../rss-bridge/Dockerfile
-      context: ../rss-bridge
-    restart: always
+networks:
+  rss_shared_network:
+    external: true
 
 volumes:
   db:
