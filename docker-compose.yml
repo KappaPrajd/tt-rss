@@ -69,6 +69,9 @@ services:
 
   rss-bridge:
     image: rssbridge/rss-bridge
+    build:
+      dockerfile: ../rss-bridge/Dockerfile
+      context: ../rss-bridge
     restart: always
 
 volumes:
