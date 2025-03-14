@@ -29,6 +29,9 @@ class Auth_Internal extends Auth_Base implements IAuthModule2 {
 					return $this->check_app_password($login, $password, $service);
 				}
 
+				if (Config::get(Config::DISABLE_LOGIN_FORM))
+					return false;
+
 				if ($otp) {
 					if ($this->check_password($user_id, $password) && UserHelper::check_otp($user_id, $otp))
 						return $user_id;
@@ -113,6 +116,9 @@ class Auth_Internal extends Auth_Base implements IAuthModule2 {
 			if ($user_id)
 				return $user_id;
 		}
+
+		if (Config::get(Config::DISABLE_LOGIN_FORM))
+			return false;
 
 		if ($login) {
 			$user = ORM::for_table('ttrss_users')
