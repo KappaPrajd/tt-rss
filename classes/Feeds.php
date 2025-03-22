@@ -567,8 +567,16 @@ class Feeds extends Handler_Protected {
 	}
 
 	function subscribeToFeed(): void {
+		global $update_intervals;
+
+		$local_update_intervals = $update_intervals;
+		$local_update_intervals[0] .= sprintf(" (%s)", $update_intervals[Prefs::get(Prefs::DEFAULT_UPDATE_INTERVAL, $_SESSION['uid'])]);
+
 		print json_encode([
-			"cat_select" => \Controls\select_feeds_cats("cat")
+			"cat_select" => \Controls\select_feeds_cats("cat"),
+			"intervals" => [
+				"update" => $local_update_intervals
+			]
 		]);
 	}
 
@@ -981,8 +989,9 @@ class Feeds extends Handler_Protected {
 		$need_auth = isset($_REQUEST['need_auth']);
 		$login = $need_auth ? clean($_REQUEST['login']) : '';
 		$pass = $need_auth ? clean($_REQUEST['pass']) : '';
+		$update_interval = (int) clean($_REQUEST['update_interval'] ?? 0);
 
-		$rc = Feeds::_subscribe($feed, $cat, $login, $pass);
+		$rc = Feeds::_subscribe($feed, $cat, $login, $pass, $update_interval);
 
 		print json_encode(array("result" => $rc));
 	}
@@ -1002,7 +1011,7 @@ class Feeds extends Handler_Protected {
 	 *                 7 - Error while creating feed database entry.
 	 *                 8 - Permission denied (ACCESS_LEVEL_READONLY).
 	 */
-	static function _subscribe(string $url, int $cat_id = 0, string $auth_login = '', string $auth_pass = ''): array {
+	static function _subscribe(string $url, int $cat_id = 0, string $auth_login = '', string $auth_pass = '', int $update_interval = 0): array {
 
 		$user = ORM::for_table("ttrss_users")->find_one($_SESSION['uid']);
 
@@ -1067,6 +1076,7 @@ class Feeds extends Handler_Protected {
 				'auth_login' => (string)$auth_login,
 				'auth_pass' => (string)$auth_pass,
 				'update_method' => 0,
+				'update_interval' => $update_interval,
 				'auth_pass_encrypted' => false,
 			]);
 
@@ -2143,6 +2153,9 @@ class Feeds extends Handler_Protected {
 		// This is needed so potential command pairs are grouped correctly.
 		$search_csv_str = preg_replace('/(-?\w+)\:"(\w+)/', '"$1:$2', trim($search));
 
+		// '-"hello world"' --> '"-hello world"' so negated phrases work
+		$search_csv_str = preg_replace('/-"([^"]+?")/', '"-$1', $search_csv_str);
+
 		// $keywords will be an array like ['"title:hello world"', 'some', 'words']
 		$keywords = str_getcsv($search_csv_str, ' ', '"', '');
 
@@ -2160,6 +2173,8 @@ class Feeds extends Handler_Protected {
 			} else {
 				$not = "";
 			}
+
+			$k = trim($k);
 
 			$keyword_pair = explode(':', mb_strtolower($k), 2);
 			$keyword_name = $keyword_pair[0];
@@ -2265,22 +2280,21 @@ class Feeds extends Handler_Protected {
 						$orig_ts = strtotime(substr($k, 1));
 						$k = date("Y-m-d", TimeHelper::convert_timestamp($orig_ts, $user_tz_string, 'UTC'));
 
-						//$k = date("Y-m-d", strtotime(substr($k, 1)));
-
 						array_push($query_keywords, "(".SUBSTRING_FOR_DATE."(updated,1,LENGTH(".$pdo->quote($k).")) $not = ".$pdo->quote($k).")");
 					} else {
 						// treat as leftover text
 
-						// TODO: handle multiword strings in the fulltext search
 						$k = mb_strtolower($k);
 
 						if (Config::get(Config::DB_TYPE) == "pgsql") {
+							// A hacky way for phrases (e.g. "hello world") to get through PDO quoting.
+							// Term '"foo bar baz"' becomes '(foo <-> bar <-> baz)' ("<->" meaning "immediately followed by").
+							if (preg_match('/\s+/', $k))
+								$k = '(' . preg_replace('/\s+/', ' <-> ', $k) . ')';
+
 							array_push($search_query_leftover, $not ? "!$k" : $k);
 						} else {
 							array_push($search_query_leftover, $not ? "-$k" : $k);
-
-							//array_push($query_keywords, "(UPPER(ttrss_entries.title) $not LIKE UPPER(".$pdo->quote("%$k%").")
-							//	OR UPPER(ttrss_entries.content) $not LIKE UPPER(".$pdo->quote("%$k%")."))");
 						}
 
 						if (!$not) array_push($search_words, $k);
